@@ -1,61 +1,55 @@
-// IMPORT REQUIRED PACKAGES
+// Import core libraries
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+
+// Load environment variables from .env file
 require('dotenv').config();
 
-// INITIALIZE EXPRESS APP
+// Initialize Express app
 const app = express();
 
-// MIDDLEWARES
-
-// ✅ Enable CORS (allows frontend to communicate with backend)
+// Middleware: enable CORS so frontend can call backend
 app.use(cors());
 
-// ✅ Parse incoming JSON requests (req.body)
+// Middleware: parse incoming JSON requests
 app.use(express.json());
 
+// ==============================
+// 🗄️ DATABASE CONNECTION
+// ==============================
 
-// ==========================
-// DATABASE CONNECTION
-// ==========================
-
+// Connect to MongoDB using connection string from .env
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .then(() => console.log('MongoDB Connected')) // success log
+  .catch(err => console.error('MongoDB Error:', err)); // error log
 
+// ==============================
+// 📦 IMPORT ROUTES & MIDDLEWARE
+// ==============================
 
-// ==========================
-// IMPORT ROUTES & MIDDLEWARE
-// ==========================
+const userRoutes = require('./routes/userRoutes');     // CRUD routes
+const authRoutes = require('./routes/authRoutes');     // auth routes (login/signup)
+const auth = require('./middleware/authMiddleware');   // JWT middleware
 
-// User routes (CRUD)
-const userRoutes = require('./routes/userRoutes');
+// ==============================
+// 🚏 ROUTES
+// ==============================
 
-// Auth routes (signup/login)
-const authRoutes = require('./routes/authRoutes');
-
-// Auth middleware (JWT protection)
-const auth = require('./middleware/authMiddleware');
-
-
-// ==========================
-// DEFINE ROUTES
-// ==========================
-
-// ✅ PUBLIC ROUTES (no login required)
+// Public routes (no authentication required)
 app.use('/api/auth', authRoutes);
 
-// 🔐 PROTECTED ROUTES (login required)
+// Protected routes (require valid JWT)
 app.use('/api/users', auth, userRoutes);
 
+// ==============================
+// 🚀 START SERVER
+// ==============================
 
-// ==========================
-// START SERVER
-// ==========================
-
+// Use Render port OR local port
 const PORT = process.env.PORT || 5000;
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
