@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const auth = require('../middleware/authMiddleware'); // ✅ added
 
 // CREATE user
 router.post('/', async (req, res) => {
@@ -13,8 +14,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// READ all users
-router.get('/', async (req, res) => {
+// READ all users (PROTECTED)
+router.get('/', auth, async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);
