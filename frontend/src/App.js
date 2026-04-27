@@ -2,35 +2,48 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // ✅ Base API URL
-const API_URL = "http://localhost:5000"; 
-// For production later:
+const API_URL = "https://mern-book-y622.onrender.com";
+// For production:
 // const API_URL = "https://mern-book-y622.onrender.com";
+// For local development:
+// const API_URL = "http://localhost:5000";
+
 
 function App() {
+
+  // ==============================
+  // 🔹 STATE MANAGEMENT
+  // ==============================
+
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({ name: '', email: '' });
   const [editingId, setEditingId] = useState(null);
 
-  // ✅ Auth form state
+  // 🔐 Auth state
   const [authForm, setAuthForm] = useState({
     name: '',
     email: '',
     password: ''
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+
   // ==============================
   // 🔐 AUTH FUNCTIONS
   // ==============================
 
+  // ✅ Signup
   const handleSignup = async () => {
     try {
       await axios.post(`${API_URL}/api/auth/signup`, authForm);
       alert("Signup successful");
     } catch (err) {
-      console.error(err);
+      console.error(err.response?.data || err.message);
     }
   };
 
+  // ✅ Login
   const handleLogin = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/auth/login`, {
@@ -40,47 +53,66 @@ function App() {
 
       // ✅ Save token
       localStorage.setItem('token', res.data.token);
+
+      // ✅ Set login state
+      setIsLoggedIn(true);
+
       alert("Login successful");
 
-      // ✅ Fetch users AFTER login
+      // ✅ Fetch users after login
       fetchUsers();
 
     } catch (err) {
-      console.error(err);
+      console.error(err.response?.data || err.message);
     }
   };
+
+  // ✅ Logout
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    setUsers([]);
+    alert("Logged out");
+  };
+
 
   // ==============================
   // 📡 FETCH USERS (PROTECTED)
   // ==============================
-  const fetchUsers = () => {
+
+  const fetchUsers = async () => {
     const token = localStorage.getItem('token');
 
-    // ✅ Prevent 401 error
-    if (!token) {
-      console.log("No token found, skipping fetch");
-      return;
-    }
+    if (!token) return;
 
-    axios.get(`${API_URL}/api/users`, {
-      headers: {
-        Authorization: token
-      }
-    })
-    .then(res => setUsers(res.data))
-    .catch(err => console.error(err));
+    try {
+      const res = await axios.get(`${API_URL}/api/users`, {
+        headers: {
+          Authorization: `Bearer ${token}` // ✅ STANDARD FORMAT
+        }
+      });
+
+      setUsers(res.data);
+
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+    }
   };
 
-  // ✅ Only fetch if token exists
+
+  // ✅ Auto login check on page load
   useEffect(() => {
     const token = localStorage.getItem('token');
+
     if (token) {
+      setIsLoggedIn(true);
       fetchUsers();
     }
   }, []);
 
+
   // ==============================
-  // 📝 FORM HANDLING (CRUD)
+  // 📝 FORM HANDLING
   // ==============================
 
   const handleChange = (e) => {
@@ -91,8 +123,12 @@ function App() {
     setAuthForm({ ...authForm, [e.target.name]: e.target.value });
   };
 
-  // ✅ CREATE / UPDATE
-  const handleSubmit = (e) => {
+
+  // ==============================
+  // 📝 CREATE / UPDATE USER
+  // ==============================
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const token = localStorage.getItem('token');
@@ -102,45 +138,70 @@ function App() {
       return;
     }
 
-    if (editingId) {
-      axios.put(`${API_URL}/api/users/${editingId}`, form, {
-        headers: { Authorization: token }
-      })
-      .then(res => {
+    try {
+      if (editingId) {
+        // UPDATE
+        const res = await axios.put(
+          `${API_URL}/api/users/${editingId}`,
+          form,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+
         setUsers(users.map(u => u._id === editingId ? res.data : u));
         setEditingId(null);
-        setForm({ name: '', email: '' });
-      })
-      .catch(err => console.error(err));
 
-    } else {
-      axios.post(`${API_URL}/api/users`, form, {
-        headers: { Authorization: token }
-      })
-      .then(res => {
+      } else {
+        // CREATE
+        const res = await axios.post(
+          `${API_URL}/api/users`,
+          form,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+
         setUsers([...users, res.data]);
-        setForm({ name: '', email: '' });
-      })
-      .catch(err => console.error(err));
+      }
+
+      setForm({ name: '', email: '' });
+
+    } catch (err) {
+      console.error(err.response?.data || err.message);
     }
   };
 
-  // ✅ DELETE
-  const handleDelete = (id) => {
+
+  // ==============================
+  // 🗑 DELETE USER
+  // ==============================
+
+  const handleDelete = async (id) => {
     const token = localStorage.getItem('token');
 
-    axios.delete(`${API_URL}/api/users/${id}`, {
-      headers: { Authorization: token }
-    })
-    .then(() => setUsers(users.filter(u => u._id !== id)))
-    .catch(err => console.error(err));
+    try {
+      await axios.delete(`${API_URL}/api/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setUsers(users.filter(u => u._id !== id));
+
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+    }
   };
 
-  // ✅ EDIT
+
+  // ==============================
+  // ✏️ EDIT USER
+  // ==============================
+
   const handleEdit = (user) => {
     setEditingId(user._id);
     setForm({ name: user.name, email: user.email });
   };
+
 
   // ==============================
   // 🎨 UI
@@ -151,62 +212,59 @@ function App() {
       <h1>MERN Users</h1>
 
       {/* 🔐 AUTH SECTION */}
-      <h2>Signup / Login</h2>
-      <input
-        type="text"
-        name="name"
-        placeholder="Name"
-        onChange={handleAuthChange}
-      />
-      <input
-        type="email"
-        name="email"
-        placeholder="Email"
-        onChange={handleAuthChange}
-      />
-      <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        onChange={handleAuthChange}
-      />
+      {!isLoggedIn ? (
+        <>
+          <h2>Signup / Login</h2>
 
-      <button onClick={handleSignup}>Signup</button>
-      <button onClick={handleLogin}>Login</button>
+          <input type="text" name="name" placeholder="Name" onChange={handleAuthChange} />
+          <input type="email" name="email" placeholder="Email" onChange={handleAuthChange} />
+          <input type="password" name="password" placeholder="Password" onChange={handleAuthChange} />
 
-      {/* 📝 USER FORM */}
-      <h2>{editingId ? "Update User" : "Add User"}</h2>
-      <form onSubmit={handleSubmit}>
-        <input 
-          type="text" 
-          name="name" 
-          placeholder="Name" 
-          value={form.name} 
-          onChange={handleChange} 
-        />
-        <input 
-          type="email" 
-          name="email" 
-          placeholder="Email" 
-          value={form.email} 
-          onChange={handleChange} 
-        />
-        <button type="submit">
-          {editingId ? 'Update User' : 'Add User'}
-        </button>
-      </form>
+          <button onClick={handleSignup}>Signup</button>
+          <button onClick={handleLogin}>Login</button>
+        </>
+      ) : (
+        <>
+          <button onClick={handleLogout}>Logout</button>
 
-      {/* 📋 USER LIST */}
-      <h2>User List</h2>
-      <ul>
-        {users.map(user => (
-          <li key={user._id}>
-            {user.name} - {user.email}
-            <button onClick={() => handleEdit(user)}>Edit</button>
-            <button onClick={() => handleDelete(user._id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
+          {/* 📝 USER FORM */}
+          <h2>{editingId ? "Update User" : "Add User"}</h2>
+
+          <form onSubmit={handleSubmit}>
+            <input 
+              type="text" 
+              name="name" 
+              placeholder="Name" 
+              value={form.name} 
+              onChange={handleChange} 
+            />
+
+            <input 
+              type="email" 
+              name="email" 
+              placeholder="Email" 
+              value={form.email} 
+              onChange={handleChange} 
+            />
+
+            <button type="submit">
+              {editingId ? 'Update User' : 'Add User'}
+            </button>
+          </form>
+
+          {/* 📋 USER LIST */}
+          <h2>User List</h2>
+          <ul>
+            {users.map(user => (
+              <li key={user._id}>
+                {user.name} - {user.email}
+                <button onClick={() => handleEdit(user)}>Edit</button>
+                <button onClick={() => handleDelete(user._id)}>Delete</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
